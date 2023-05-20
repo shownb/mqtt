@@ -1,25 +1,5 @@
 #!/usr/bin/env python
-
-# Copyright 2017 Google Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#         http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-"""Python sample for connecting to Google Cloud IoT Core via MQTT, using JWT.
-This example connects to Google Cloud IoT Core via MQTT, using a JWT for device
-authentication. After connecting, by default the device publishes 100 messages
-to the device's MQTT topic at a rate of one per second, and then exits.
-Before you run the sample, you must follow the instructions in the README
-for this sample.
-"""
+#just save space
 
 # [START iot_mqtt_includes]
 import argparse
@@ -29,6 +9,7 @@ import os
 import random
 import ssl
 import time
+import json
 
 import jwt
 import paho.mqtt.client as mqtt
@@ -123,11 +104,15 @@ def on_publish(unused_client, unused_userdata, unused_mid):
 def on_message(unused_client, unused_userdata, message):
     """Callback when the device receives a message on a subscription."""
     payload = str(message.payload.decode("utf-8"))
-    print(
-        "Received message '{}' on topic '{}' with Qos {}".format(
-            payload, message.topic, str(message.qos)
-        )
-    )
+    print("Received message '{}' on topic '{}' with Qos {}".format(payload, message.topic, str(message.qos)))
+    js = json.loads(payload)
+    print(js["cmd"])
+    if js["cmd"]=="checkmachine":
+        back='{"cmd":"checkmachine","rid":'+js["rid"]+',"vsign":"51a006150fab78d5fa1e5131996d0a34"}'
+        unused_client.publish("/devices/machine-555888/commands", back)
+        time.sleep(1)
+        unused_client.publish("/devices/machine-555888/commands", '{"cmd":"lvinfo","level":[100,100,100,100]}')
+    
 
 
 def get_client(
@@ -158,6 +143,8 @@ def get_client(
 
     # Enable SSL/TLS support.
     client.tls_set(ca_certs=ca_certs, tls_version=ssl.PROTOCOL_TLSv1_2)
+    #解决ip问题,非安全 测试用
+    client.tls_insecure_set(True)
 
     # Register message callbacks. https://eclipse.org/paho/clients/python/docs/
     # describes additional callbacks that Paho supports. In this example, the
@@ -564,8 +551,39 @@ def mqtt_device_demo(args):
             time.sleep(1)
             client.loop()
     # [END iot_mqtt_run]
+    
 
+def mqtt_device_demo2(args):
+    """Connects a device, sends data, and receives data."""
+    # [START iot_mqtt_run]
+    global minimum_backoff_time
+    global MAXIMUM_BACKOFF_TIME
 
+    # Publish to the events or state topic based on the flag.
+    sub_topic = "events" if args.message_type == "event" else "state"
+
+    mqtt_topic = f"/devices/{args.device_id}/{sub_topic}"
+
+    jwt_iat = datetime.datetime.now(tz=datetime.timezone.utc)
+    jwt_exp_mins = args.jwt_expires_minutes
+    client = get_client(
+        args.project_id,
+        args.cloud_region,
+        args.registry_id,
+        args.device_id,
+        args.private_key_file,
+        args.algorithm,
+        args.ca_certs,
+        args.mqtt_bridge_hostname,
+        args.mqtt_bridge_port,
+    )
+    
+    client.subscribe("/devices/machine-555888/events/topic", 1)
+    
+    while client.loop() == 0:
+        pass
+
+    
 def main():
     args = parse_command_line_args()
 
