@@ -106,12 +106,13 @@ def on_message(unused_client, unused_userdata, message):
     payload = str(message.payload.decode("utf-8"))
     print("Received message '{}' on topic '{}' with Qos {}".format(payload, message.topic, str(message.qos)))
     js = json.loads(payload)
-    print(js["cmd"])
     if js["cmd"]=="checkmachine":
         back='{"cmd":"checkmachine","rid":'+js["rid"]+',"vsign":"51a006150fab78d5fa1e5131996d0a34"}'
         unused_client.publish("/devices/machine-555888/commands", back)
-        time.sleep(1)
+    elif js["cmd"]=="lvinfo":
         unused_client.publish("/devices/machine-555888/commands", '{"cmd":"lvinfo","level":[100,100,100,100]}')
+    else:
+        pass
     
 
 
@@ -629,7 +630,7 @@ def main():
         )
         return
     else:
-        mqtt_device_demo(args)
+        mqtt_device_demo2(args)
     print("Finished.")
 
 
